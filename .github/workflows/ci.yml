@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - run: npm run build
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The identifiers to look for live in the PII_PATTERNS repository variable (one
+      # fixed string per line), never in this file: a public workflow that lists the
+      # names it protects would publish them. Output is file:line only, because
+      # Actions logs are public on public repos. -H matters: when xargs hands grep a
+      # single file, grep drops the filename and `cut -f1,2` would keep line:CONTENT.
+      - name: Check for PII or hardcoded local paths
+        env:
+          PII_PATTERNS: ${{ vars.PII_PATTERNS }}
+        run: |
+          PATTERNS=$(mktemp)
+          # tr: a variable saved with CRLF line endings would otherwise leave a "\r" on
+          # every pattern, and they'd silently match nothing.
+          printf '%s\n' "$PII_PATTERNS" | tr -d '\r' | sed '/^[[:space:]]*$/d' > "$PATTERNS"
+          printf '%s\n' 'C:\Users' 'C:/Users' '/home/' '/Users/' >> "$PATTERNS"
+          if [ -z "$PII_PATTERNS" ]; then
+            echo "::warning::PII_PATTERNS variable is not set (e.g. a fork PR); only checking for local paths."
+          fi
+          HITS=$(git ls-files | grep -vE '^(\.github/|.*CLAUDE\.md$)' | xargs -r grep -H -n -iF -f "$PATTERNS" | cut -d: -f1,2 || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS"
+            echo "::error::Possible PII or hardcoded-path leak at the file:line locations above (see CLAUDE.md ground rule 1)."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high

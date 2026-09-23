@@ -1,0 +1,6 @@
+node_modules/
+dist/
+devlog-drafts/
+coverage/
+*.log
+.env
