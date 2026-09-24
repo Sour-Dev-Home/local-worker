@@ -37,22 +37,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The identifiers to look for live in the PII_PATTERNS repository variable (one
+      # The identifiers to look for live in the PII_PATTERNS repository SECRET (one
       # fixed string per line), never in this file: a public workflow that lists the
-      # names it protects would publish them. Output is file:line only, because
+      # names it protects would publish them. It must be a secret, not a variable:
+      # Actions prints a step's env: block unmasked at the top of the log, and only
+      # secrets are masked. Dependabot runs read a Dependabot secret of the same name. Output is file:line only, because
       # Actions logs are public on public repos. -H matters: when xargs hands grep a
       # single file, grep drops the filename and `cut -f1,2` would keep line:CONTENT.
       - name: Check for PII or hardcoded local paths
         env:
-          PII_PATTERNS: ${{ vars.PII_PATTERNS }}
+          PII_PATTERNS: ${{ secrets.PII_PATTERNS }}
         run: |
           PATTERNS=$(mktemp)
-          # tr: a variable saved with CRLF line endings would otherwise leave a "\r" on
+          # tr: a value saved with CRLF line endings would otherwise leave a "\r" on
           # every pattern, and they'd silently match nothing.
           printf '%s\n' "$PII_PATTERNS" | tr -d '\r' | sed '/^[[:space:]]*$/d' > "$PATTERNS"
           printf '%s\n' 'C:\Users' 'C:/Users' '/home/' '/Users/' >> "$PATTERNS"
           if [ -z "$PII_PATTERNS" ]; then
-            echo "::warning::PII_PATTERNS variable is not set (e.g. a fork PR); only checking for local paths."
+            echo "::warning::PII_PATTERNS secret is not available (e.g. a fork PR); only checking for local paths."
           fi
           # LICENSE deliberately names the copyright holder, so it's the one file exempted.
           HITS=$(git ls-files | grep -vE '^(\.github/|.*CLAUDE\.md$|LICENSE$)' | xargs -r grep -H -n -iF -f "$PATTERNS" | cut -d: -f1,2 || true)
