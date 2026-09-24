@@ -54,7 +54,8 @@ jobs:
           if [ -z "$PII_PATTERNS" ]; then
             echo "::warning::PII_PATTERNS variable is not set (e.g. a fork PR); only checking for local paths."
           fi
-          HITS=$(git ls-files | grep -vE '^(\.github/|.*CLAUDE\.md$)' | xargs -r grep -H -n -iF -f "$PATTERNS" | cut -d: -f1,2 || true)
+          # LICENSE deliberately names the copyright holder, so it's the one file exempted.
+          HITS=$(git ls-files | grep -vE '^(\.github/|.*CLAUDE\.md$|LICENSE$)' | xargs -r grep -H -n -iF -f "$PATTERNS" | cut -d: -f1,2 || true)
           if [ -n "$HITS" ]; then
             echo "$HITS"
             echo "::error::Possible PII or hardcoded-path leak at the file:line locations above (see CLAUDE.md ground rule 1)."

@@ -9,7 +9,9 @@ model. TypeScript, ESM, Node 22+. See README.md for what it does and its securit
    data, personal email, phone number, account usernames, or absolute local paths
    (e.g. `C:\Users\...`). Examples use placeholders like `/path/to/...`. The CI
    `security` job greps for this; CLAUDE.md files are excluded because they document the
-   patterns.
+   patterns. **One deliberate exception:** `LICENSE` names the copyright holder by real
+   name, so the owner can prove authorship. Keep the name there and nowhere else, and
+   don't "fix" it.
 2. **The path checks are the security boundary.** Any change to `src/paths.ts`, or any
    new code that reads or writes a caller-supplied path, needs tests for `..` traversal,
    symlinks, other drives and case folding, and a `security-reviewer` pass before merge.
